@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pdfplumber
+pandas
+regex
+python-multipart
+openai
+groq
+google-genai
+python-dotenv
+pydantic
