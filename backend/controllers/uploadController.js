@@ -185,6 +185,18 @@ export const parseTransactionsFromCsvRows = (rows, userId) => {
     const hasDebitMarker = debitIndex >= 0 && Boolean((row[debitIndex] || '').trim());
     const hasCreditMarker = creditIndex >= 0 && Boolean((row[creditIndex] || '').trim());
 
+    const extraFields = {};
+    headers.forEach((h, idx) => {
+      if (idx !== dateIndex && idx !== descIndex && idx !== amountIndex &&
+          idx !== debitIndex && idx !== creditIndex && idx !== balanceIndex) {
+        const val = (row[idx] || '').trim();
+        if (val) {
+          const cleanHeader = h.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+          extraFields[cleanHeader] = val;
+        }
+      }
+    });
+
     rawTransactions.push({
       date,
       description,
@@ -193,7 +205,8 @@ export const parseTransactionsFromCsvRows = (rows, userId) => {
       directAmount,
       balance,
       hasDebitMarker,
-      hasCreditMarker
+      hasCreditMarker,
+      ...extraFields
     });
   }
 
@@ -211,7 +224,9 @@ export const parseTransactionsFromCsvRows = (rows, userId) => {
 
     if (amount === null || amount === 0) return null;
 
-    const categoryDetails = categorizeTransactionDetails(tx.description, amount);
+    const categoryDetails = categorizeTransactionDetails(tx, amount);
+    
+    // Construct the clean transaction object to save to DB (discarding other raw CSV fields)
     return {
       user: userId,
       date: tx.date,
