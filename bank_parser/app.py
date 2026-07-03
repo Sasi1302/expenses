@@ -44,7 +44,8 @@ app.add_middleware(
 API_KEYS = {
     "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
     "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
-    "GROQ_API_KEY": os.getenv("GROQ_API_KEY")
+    "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
+    "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY")
 }
 
 def parse_pdf_via_ai(text: str, bank_name: str) -> List[Dict[str, Any]]:
@@ -67,7 +68,29 @@ Raw text from PDF:
 {text}
 """
     
-    # Try Groq first
+    # Try DeepSeek first
+    if API_KEYS.get("DEEPSEEK_API_KEY"):
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=API_KEYS["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
+            completion = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="deepseek-chat",
+                temperature=0
+            )
+            res_text = completion.choices[0].message.content.strip()
+            # Clean markdown block if present
+            if res_text.startswith("```json"):
+                res_text = res_text.replace("```json", "", 1).rstrip("`").strip()
+            elif res_text.startswith("```"):
+                res_text = res_text.replace("```", "", 1).rstrip("`").strip()
+            parsed = json.loads(res_text)
+            if isinstance(parsed, list):
+                return parsed
+        except Exception as e:
+            print("DeepSeek AI parsing failed, falling back...", e)
+
+    # Try Groq second
     if API_KEYS.get("GROQ_API_KEY"):
         try:
             from groq import Groq
@@ -291,5 +314,6 @@ async def parse_statement(file: UploadFile = File(...)):
                 pass
 
 if __name__ == "__main__":
+    # pyrefly: ignore [missing-import]
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

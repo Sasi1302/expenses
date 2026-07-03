@@ -319,10 +319,12 @@ export const categorizeTransactionDetails = (transactionOrDesc, amount) => {
     }
   }
 
+  let matchedTransferDebit = false;
   for (const [pattern, category] of TRANSACTION_TYPE_RULES) {
     if (pattern.test(searchStr)) {
       if (category === 'Transfers/Income' && numericAmount < 0) {
-        return result('Others', 45, 'transaction_type');
+        matchedTransferDebit = true;
+        continue;
       }
       return result(category, 95, 'transaction_type');
     }
@@ -342,6 +344,10 @@ export const categorizeTransactionDetails = (transactionOrDesc, amount) => {
 
   if (cache[normalizedDesc] === 'Others') {
     return result('Others', 60, 'cache');
+  }
+
+  if (matchedTransferDebit) {
+    return result('Others', 45, 'transaction_type');
   }
 
   return result('Others', 40, 'unknown');
@@ -385,7 +391,25 @@ Return a JSON object like:
 
   let aiResults = null;
 
-  if (process.env.GROQ_API_KEY) {
+  if (process.env.DEEPSEEK_API_KEY) {
+    try {
+      const client = new OpenAI({ 
+        apiKey: process.env.DEEPSEEK_API_KEY, 
+        baseURL: 'https://api.deepseek.com' 
+      });
+      const completion = await client.chat.completions.create({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        response_format: { type: 'json_object' }
+      });
+      aiResults = parseAiResponse(completion.choices[0].message.content);
+    } catch (error) {
+      console.error('DeepSeek batch categorization failed:', error.message);
+    }
+  }
+
+  if (!aiResults && process.env.GROQ_API_KEY) {
     try {
       const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
       const completion = await client.chat.completions.create({

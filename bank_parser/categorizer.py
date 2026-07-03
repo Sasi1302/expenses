@@ -290,12 +290,14 @@ def categorize_transaction_with_metadata(tx: Any, amount: Optional[float] = None
         if not (cached_category == 'Cash Withdrawal' and not has_cash_withdrawal_signal(search_str)):
             return category_result(cached_category, 100, 'cache')
 
+    matched_transfer_debit = False
     for pattern, category in TRANSACTION_TYPE_RULES:
         if re.search(pattern, search_str):
             if category == 'Transfers/Income' and amount is not None:
                 try:
                     if float(amount) < 0:
-                        return category_result('Others', 45, 'transaction_type')
+                        matched_transfer_debit = True
+                        continue
                 except Exception:
                     pass
             return category_result(category, 95, 'transaction_type')
@@ -313,6 +315,9 @@ def categorize_transaction_with_metadata(tx: Any, amount: Optional[float] = None
                 return category_result(category, 90, 'merchant_rule')
     if cache and cache.get(norm_desc) == 'Others':
         return category_result('Others', 60, 'cache')
+
+    if matched_transfer_debit:
+        return category_result('Others', 45, 'transaction_type')
 
     return category_result('Others', 40, 'unknown')
 
@@ -341,7 +346,23 @@ Description: "{description}"
 Respond with ONLY the exact category name. Do not include quotes, markdown formatting, or any extra text.
 """
     
-    # Try Groq first
+    # Try DeepSeek first
+    if api_keys.get("DEEPSEEK_API_KEY"):
+        try:
+            client = OpenAI(api_key=api_keys["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
+            completion = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="deepseek-chat",
+                temperature=0,
+                max_tokens=10
+            )
+            ans = completion.choices[0].message.content.strip()
+            if ans in CATEGORIES or ans == 'Others':
+                return ans
+        except Exception as e:
+            print("DeepSeek categorizer fallback failed:", e)
+
+    # Try Groq next
     if api_keys.get("GROQ_API_KEY"):
         try:
             client = Groq(api_key=api_keys["GROQ_API_KEY"])
@@ -422,7 +443,8 @@ def categorize_transactions_batch(transactions: list, api_keys: dict) -> list:
         result = categorize_transaction_with_metadata(tx, amt_val, cache)
         apply_category_metadata(tx, result)
 
-        if amt_val < 0:
+        # Only send to AI if it's a debit AND we don't have a high confidence categorization (e.g., from cache or rules)
+        if amt_val < 0 and result.get("confidence", 0) < 80:
             debit_descriptions.add(desc)
 
     # Stage 2: Batch AI call for every debit description.
@@ -460,8 +482,27 @@ Respond ONLY with the JSON object. Do not include markdown formatting like ```js
         ai_mappings = {}
         used_ai = False
         
-        # 1. Try Groq
-        if api_keys.get("GROQ_API_KEY"):
+        # 1. Try DeepSeek
+        if api_keys.get("DEEPSEEK_API_KEY"):
+            try:
+                client = OpenAI(api_key=api_keys["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
+                completion = client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="deepseek-chat",
+                    temperature=0
+                )
+                res_text = completion.choices[0].message.content.strip()
+                if res_text.startswith("```json"):
+                    res_text = res_text.replace("```json", "", 1).rstrip("`").strip()
+                elif res_text.startswith("```"):
+                    res_text = res_text.replace("```", "", 1).rstrip("`").strip()
+                ai_mappings = json.loads(res_text)
+                used_ai = True
+            except Exception as e:
+                print("DeepSeek batch categorization failed:", e)
+
+        # 2. Try Groq
+        if not used_ai and api_keys.get("GROQ_API_KEY"):
             try:
                 client = Groq(api_key=api_keys["GROQ_API_KEY"])
                 completion = client.chat.completions.create(

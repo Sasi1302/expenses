@@ -2,16 +2,8 @@ import axios from 'axios';
 
 const API_URL = '/api';
 
-// Automatically attach the JWT token to all outgoing requests
-axios.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
+// Configure axios to include cookies with requests
+axios.defaults.withCredentials = true;
 
 export const uploadStatement = (file) => {
   const formData = new FormData();

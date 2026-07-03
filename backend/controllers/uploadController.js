@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { ObjectId } from 'mongodb';
 import Transaction from '../models/Transaction.js';
 import { categorizeTransactionDetails, categorizeTransactionsWithAi } from '../utils/categorizer.js';
 
@@ -36,19 +37,22 @@ export const uploadStatement = async (req, res) => {
 
       // Save transactions to database
       const finalResults = transactions.map(t => ({
-        user: req.user.id,
+        user: new ObjectId(req.user._id),
         date: new Date(t.date),
         description: t.description,
         amount: t.amount,
         category: t.category,
-        confidence: t.confidence,
-        needsReview: t.needsReview,
-        categorizationSource: t.categorizationSource
+        confidence: t.confidence || 40,
+        needsReview: t.needsReview ?? true,
+        categorizationSource: t.categorizationSource || 'unknown',
+        createdAt: new Date(),
+        updatedAt: new Date()
       }));
 
-      await Transaction.deleteMany({ user: req.user.id });
+      const transactionsCollection = Transaction.getCollection();
+      await transactionsCollection.deleteMany({ user: new ObjectId(req.user._id) });
       if (finalResults.length > 0) {
-        await Transaction.insertMany(finalResults);
+        await transactionsCollection.insertMany(finalResults);
       }
 
       // Return confirmation message and the parsed data
@@ -69,12 +73,13 @@ export const uploadStatement = async (req, res) => {
       fs.unlinkSync(req.file.path);
 
       const parsedTransactions = await categorizeTransactionsWithAi(
-        parseTransactionsFromCsvRows(rows, req.user.id)
+        parseTransactionsFromCsvRows(rows, req.user._id)
       );
 
       if (parsedTransactions.length > 0) {
-        await Transaction.deleteMany({ user: req.user.id });
-        await Transaction.insertMany(parsedTransactions);
+        const transactionsCollection = Transaction.getCollection();
+        await transactionsCollection.deleteMany({ user: new ObjectId(req.user._id) });
+        await transactionsCollection.insertMany(parsedTransactions);
       }
 
       return res.status(200).json({
@@ -226,12 +231,17 @@ export const parseTransactionsFromCsvRows = (rows, userId) => {
 
     const categoryDetails = categorizeTransactionDetails(tx, amount);
     
-    // Construct the clean transaction object to save to DB (discarding other raw CSV fields)
+    // Construct the clean transaction object to save to DB
     return {
-      user: userId,
+      user: new ObjectId(userId),
       date: tx.date,
       description: tx.description,
       amount,
+      confidence: 40,
+      needsReview: true,
+      categorizationSource: 'unknown',
+      createdAt: new Date(),
+      updatedAt: new Date(),
       ...categoryDetails
     };
   }).filter(Boolean);
