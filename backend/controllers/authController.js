@@ -48,6 +48,7 @@ export const registerUser = async (req, res) => {
         _id: result.insertedId,
         name: newUser.name,
         email: newUser.email,
+        token, // Added for mobile apps
       });
     } else {
       res.status(400).json({ error: 'Invalid user data' });
@@ -80,6 +81,7 @@ export const loginUser = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        token, // Added for mobile apps
       });
     } else {
       res.status(401).json({ error: 'Invalid credentials' });
