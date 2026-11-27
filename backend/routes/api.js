@@ -2,8 +2,12 @@ import express from 'express';
 import multer from 'multer';
 
 // Import auth and middleware
-import { registerUser, loginUser, getMe } from '../controllers/authController.js';
+import { registerUser, loginUser, logoutUser, getMe } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { validate } from '../middleware/validate.js';
+
+// Import schemas
+import { registerSchema, loginSchema, updateCategorySchema } from '../validators/schemas.js';
 
 // Import our modular controllers
 import { uploadStatement } from '../controllers/uploadController.js';
@@ -16,8 +20,9 @@ const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
 // Auth Routes
-router.post('/auth/register', registerUser);
-router.post('/auth/login', loginUser);
+router.post('/auth/register', validate(registerSchema), registerUser);
+router.post('/auth/login', validate(loginSchema), loginUser);
+router.post('/auth/logout', logoutUser);
 router.get('/auth/me', protect, getMe);
 
 // Protected POST Routes
@@ -28,6 +33,6 @@ router.get('/transactions', protect, getTransactions);
 router.get('/dashboard', protect, getDashboardData);
 
 // Protected PUT Routes
-router.put('/transaction/:id/category', protect, updateCategory);
+router.put('/transaction/:id/category', protect, validate(updateCategorySchema), updateCategory);
 
 export default router;

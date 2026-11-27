@@ -15,29 +15,40 @@ export const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Please add all fields' });
-    }
-
     // Check if user exists
-    const userExists = await User.findOne({ email });
+    const usersCollection = User.getCollection();
+    const userExists = await usersCollection.findOne({ email });
     if (userExists) {
       return res.status(400).json({ error: 'User already exists' });
     }
 
+    // Hash password manually since we removed Mongoose hooks
+    const hashedPassword = await User.hashPassword(password);
+
     // Create user
-    const user = await User.create({
+    const newUser = {
       name,
       email,
-      password,
-    });
+      password: hashedPassword,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const result = await usersCollection.insertOne(newUser);
 
-    if (user) {
+    if (result.insertedId) {
+      const token = generateToken(result.insertedId.toString());
+      res.cookie('jwt', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+      });
       res.status(201).json({
-        _id: user.id,
-        name: user.name,
-        email: user.email,
-        token: generateToken(user._id),
+        _id: result.insertedId,
+        name: newUser.name,
+        email: newUser.email,
+        token, // Added for mobile apps
       });
     } else {
       res.status(400).json({ error: 'Invalid user data' });
@@ -55,14 +66,22 @@ export const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     // Check for user email
-    const user = await User.findOne({ email });
+    const usersCollection = User.getCollection();
+    const user = await usersCollection.findOne({ email });
 
-    if (user && (await user.matchPassword(password))) {
+    if (user && (await User.matchPassword(password, user.password))) {
+      const token = generateToken(user._id.toString());
+      res.cookie('jwt', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+      });
       res.json({
-        _id: user.id,
+        _id: user._id,
         name: user.name,
         email: user.email,
-        token: generateToken(user._id),
+        token, // Added for mobile apps
       });
     } else {
       res.status(401).json({ error: 'Invalid credentials' });
@@ -81,4 +100,15 @@ export const getMe = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }
+};
+
+// @desc    Logout user / clear cookie
+// @route   POST /api/auth/logout
+// @access  Public
+export const logoutUser = async (req, res) => {
+  res.cookie('jwt', '', {
+    httpOnly: true,
+    expires: new Date(0)
+  });
+  res.status(200).json({ message: 'Logged out successfully' });
 };

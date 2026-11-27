@@ -1,8 +1,12 @@
+import { ObjectId } from 'mongodb';
 import Transaction from '../models/Transaction.js';
 
 export const getTransactions = async (req, res) => {
   try {
-    const transactions = await Transaction.find({ user: req.user.id }).sort({ date: -1 });
+    const transactions = await Transaction.getCollection()
+      .find({ user: new ObjectId(req.user._id) })
+      .sort({ date: -1 })
+      .toArray();
     res.json(transactions);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch transactions' });
@@ -11,7 +15,9 @@ export const getTransactions = async (req, res) => {
 
 export const getDashboardData = async (req, res) => {
   try {
-    const transactions = await Transaction.find({ user: req.user.id });
+    const transactions = await Transaction.getCollection()
+      .find({ user: new ObjectId(req.user._id) })
+      .toArray();
     
     let totalIncome = 0;
     let totalExpense = 0;

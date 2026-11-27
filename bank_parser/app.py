@@ -3,8 +3,11 @@ import tempfile
 import json
 import re
 from typing import List, Dict, Any
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, UploadFile, File, HTTPException
+# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+# pyrefly: ignore [missing-import]
 from dotenv import load_dotenv
 
 # Import our components
@@ -41,10 +44,94 @@ app.add_middleware(
 API_KEYS = {
     "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
     "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
-    "GROQ_API_KEY": os.getenv("GROQ_API_KEY")
+    "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
+    "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY")
 }
 
-def parse_pdf_via_ai(text: str, bank_name: str) -> List[Dict[str, Any]]:
+def parse_tabular_file(df: 'pd.DataFrame', bank: str) -> List[Dict[str, Any]]:
+    import pandas as pd
+    import re
+    def clean_amount(val):
+        if pd.isna(val) or val is None: return 0.0
+        val_str = str(val).strip().lower()
+        if not val_str or val_str == 'nan': return 0.0
+        val_str = re.sub(r'[inr\s,₹a-z]', '', val_str)
+        try:
+            return float(val_str)
+        except:
+            return 0.0
+
+    all_rows = [list(df.columns)] + df.values.tolist()
+    
+    header_idx = -1
+    date_idx, desc_idx, amount_idx, debit_idx, credit_idx, balance_idx = -1, -1, -1, -1, -1, -1
+    
+    date_keywords = ['date', 'txn date', 'transaction date', 'value date']
+    desc_keywords = ['desc', 'narration', 'particular', 'remark', 'detail', 'payee', 'merchant']
+    amount_keywords = ['amount']
+    debit_keywords = ['debit', 'dr', 'withdrawal']
+    credit_keywords = ['credit', 'cr', 'deposit']
+    balance_keywords = ['balance']
+    
+    for i, row in enumerate(all_rows):
+        row_strs = [str(cell).lower().strip() for cell in row]
+        
+        d_idx = next((j for j, c in enumerate(row_strs) if any(k in c for k in date_keywords)), -1)
+        ds_idx = next((j for j, c in enumerate(row_strs) if any(k in c for k in desc_keywords)), -1)
+        
+        if d_idx != -1 and ds_idx != -1:
+            header_idx = i
+            date_idx = d_idx
+            desc_idx = ds_idx
+            amount_idx = next((j for j, c in enumerate(row_strs) if any(k in c for k in amount_keywords) and not any(k in c for k in debit_keywords) and not any(k in c for k in credit_keywords)), -1)
+            debit_idx = next((j for j, c in enumerate(row_strs) if any(k in c for k in debit_keywords)), -1)
+            credit_idx = next((j for j, c in enumerate(row_strs) if any(k in c for k in credit_keywords)), -1)
+            balance_idx = next((j for j, c in enumerate(row_strs) if any(k in c for k in balance_keywords)), -1)
+            break
+            
+    if header_idx == -1:
+        return []
+        
+    transactions = []
+    for row in all_rows[header_idx+1:]:
+        if len(row) <= max(date_idx, desc_idx):
+            continue
+            
+        date = str(row[date_idx]).strip()
+        desc = str(row[desc_idx]).strip()
+        if date.lower() == 'nan' or not date or desc.lower() == 'nan' or not desc:
+            continue
+            
+        if "opening balance" in desc.lower() or "total" in date.lower():
+            continue
+            
+        amount = 0.0
+        if amount_idx != -1 and amount_idx < len(row):
+            amount = clean_amount(row[amount_idx])
+        elif debit_idx != -1 and debit_idx < len(row) and str(row[debit_idx]).lower() != 'nan':
+            amount = -abs(clean_amount(row[debit_idx]))
+        elif credit_idx != -1 and credit_idx < len(row) and str(row[credit_idx]).lower() != 'nan':
+            amount = abs(clean_amount(row[credit_idx]))
+            
+        bal = 0.0
+        if balance_idx != -1 and balance_idx < len(row):
+            bal = clean_amount(row[balance_idx])
+            
+        if amount == 0.0:
+            continue
+            
+        transactions.append({
+            "date": date,
+            "description": desc,
+            "amount": amount,
+            "type": "debit" if amount < 0 else "credit",
+            "balance": bal,
+            "reference": "",
+            "bank": bank
+        })
+    return transactions
+
+def parse_pdf_via_ai(text: str, bank: str) -> List[Dict[str, Any]]:
     """
     Fallback method: Uses LLM to extract transaction objects from the PDF text.
     """
@@ -64,7 +151,29 @@ Raw text from PDF:
 {text}
 """
     
-    # Try Groq first
+    # Try DeepSeek first
+    if API_KEYS.get("DEEPSEEK_API_KEY"):
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=API_KEYS["DEEPSEEK_API_KEY"], base_url="https://api.deepseek.com")
+            completion = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="deepseek-chat",
+                temperature=0
+            )
+            res_text = completion.choices[0].message.content.strip()
+            # Clean markdown block if present
+            if res_text.startswith("```json"):
+                res_text = res_text.replace("```json", "", 1).rstrip("`").strip()
+            elif res_text.startswith("```"):
+                res_text = res_text.replace("```", "", 1).rstrip("`").strip()
+            parsed = json.loads(res_text)
+            if isinstance(parsed, list):
+                return parsed
+        except Exception as e:
+            print("DeepSeek AI parsing failed, falling back...", e)
+
+    # Try Groq second
     if API_KEYS.get("GROQ_API_KEY"):
         try:
             from groq import Groq
@@ -132,36 +241,69 @@ Raw text from PDF:
 @app.post("/parse", response_model=ParseResponse)
 async def parse_statement(file: UploadFile = File(...)):
     """
-    Parses a bank statement PDF.
+    Parses a bank statement PDF, CSV, or Excel file.
     Exposes POST /parse.
     """
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF statements are supported.")
+    allowed_exts = (".pdf", ".csv", ".xls", ".xlsx")
+    if not file.filename.lower().endswith(allowed_exts):
+        raise HTTPException(status_code=400, detail="Only PDF, CSV, and Excel statements are supported.")
 
     import pdfplumber
+    import pandas as pd
+    
+    ext = os.path.splitext(file.filename)[1].lower()
     
     # Write to a temporary file
-    temp_fd, temp_path = tempfile.mkstemp(suffix=".pdf")
+    temp_fd, temp_path = tempfile.mkstemp(suffix=ext)
     try:
         with os.fdopen(temp_fd, 'wb') as tmp:
             tmp.write(await file.read())
 
         # Extract raw text to detect bank and for LLM fallback
         raw_text = ""
-        with pdfplumber.open(temp_path) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text()
-                if text:
-                    raw_text += text + "\n"
+        
+        if ext == ".pdf":
+            with pdfplumber.open(temp_path) as pdf:
+                for page in pdf.pages:
+                    text = page.extract_text()
+                    if text:
+                        raw_text += text + "\n"
+        else:
+            raw_text = "Tabular Data"
 
+        is_pdf = ext == ".pdf"
+        
         if not raw_text.strip():
-            raise HTTPException(status_code=400, detail="The uploaded PDF contains no readable text.")
+            raise HTTPException(status_code=400, detail="The uploaded file contains no readable text.")
 
         # Detect the Bank
-        bank = detect_bank(raw_text)
+        bank = detect_bank(raw_text) if is_pdf else "CSV/Excel Bank"
         print(f"Detected Bank: {bank}")
 
+        transactions = []
+        confidence_score = 0.0
+        parser_used = "regex_parser"
+
+        if not is_pdf:
+            if ext == ".csv":
+                try:
+                    df = pd.read_csv(temp_path, header=None, names=range(30))
+                    transactions = parse_tabular_file(df, bank)
+                    confidence_score = 90.0
+                    parser_used = "tabular_parser"
+                except Exception as e:
+                    print("Tabular parsing failed", e)
+            elif ext in (".xls", ".xlsx"):
+                try:
+                    df = pd.read_excel(temp_path, header=None, names=range(30))
+                    transactions = parse_tabular_file(df, bank)
+                    confidence_score = 90.0
+                    parser_used = "tabular_parser"
+                except Exception as e:
+                    print("Tabular parsing failed", e)
+
         # Choose the specific parser
+
         parser = None
         if bank == "ICICI":
             parser = ICICIBankParser()
@@ -172,12 +314,8 @@ async def parse_statement(file: UploadFile = File(...)):
         elif bank == "SBI":
             parser = SBIBankParser()
 
-        transactions = []
-        confidence_score = 0.0
-        parser_used = "regex_parser"
-
-        # If bank is supported, try regex parser
-        if parser is not None:
+        # If bank is supported and it is a PDF, try regex parser
+        if parser is not None and is_pdf and not transactions:
             try:
                 # 1. First Attempt: Run standard parser (table extraction)
                 result = parser.parse_pdf(temp_path)
@@ -225,7 +363,7 @@ async def parse_statement(file: UploadFile = File(...)):
                     pass
 
         # 3. AI Fallback: Use AI if bank is unsupported, or if confidence score is still below 80
-        if bank == "UNSUPPORTED" or confidence_score < 80:
+        if (bank == "UNSUPPORTED" or confidence_score < 80) and is_pdf:
             print(f"Proceeding with AI Fallback. Reason: Bank={bank}, Confidence={confidence_score}%")
             ai_txs = parse_pdf_via_ai(raw_text, bank)
             
@@ -288,5 +426,6 @@ async def parse_statement(file: UploadFile = File(...)):
                 pass
 
 if __name__ == "__main__":
+    # pyrefly: ignore [missing-import]
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { getTransactions, updateTransactionCategory } from '../api';
-import UploadModal from '../components/UploadModal';
 import { Receipt, Upload } from 'lucide-react';
 
-const CATEGORIES = ['Food & Dining', 'Groceries', 'Transport', 'Utilities', 'Recharges', 'Shopping', 'Fuel', 'Entertainment', 'Medical Expenses', 'Education', 'Rent/Housing', 'Investments', 'Insurance', 'Personal Care', 'Transfers/Income', 'Bank Charges', 'Cash Withdrawal', 'Others'];
+const UploadModal = lazy(() => import('../components/UploadModal'));
+
+const CATEGORIES = ['Food & Dining', 'Groceries', 'Transport', 'Fuel', 'Utilities', 'Recharges', 'Gas', 'Transfers/Income', 'Bank Charges', 'Shopping', 'Entertainment', 'Medical Expenses', 'Education', 'Rent/Housing', 'Investments', 'Insurance', 'Personal Care', 'Cash Withdrawal', 'Donations', 'Taxes', 'Loans', 'Travel', 'Pets', 'Miscellaneous', 'Others'];
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
@@ -65,6 +66,7 @@ const Transactions = () => {
                   <th>Description</th>
                   <th>Amount</th>
                   <th>Category</th>
+                  <th>Source</th>
                   <th>Confidence</th>
                 </tr>
               </thead>
@@ -72,7 +74,9 @@ const Transactions = () => {
                 {[...transactions].sort((a, b) => new Date(a.date) - new Date(b.date)).map((t) => (
                   <tr key={t._id}>
                     <td>{new Date(t.date).toLocaleDateString()}</td>
-                    <td>{t.description}</td>
+                    <td style={{ maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={t.description}>
+                      {t.description}
+                    </td>
                     <td style={{ color: t.amount >= 0 ? 'var(--success)' : 'var(--text-primary)' }}>
                       ₹{Math.abs(t.amount).toFixed(2)}
                     </td>
@@ -88,6 +92,11 @@ const Transactions = () => {
                       </select>
                     </td>
                     <td>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        {t.categorizationSource === 'ai' ? '🤖 AI' : (t.categorizationSource ? '⚙️ Rules' : 'Unknown')}
+                      </span>
+                    </td>
+                    <td>
                       <span className={`badge ${t.needsReview ? 'badge-warning' : 'badge-success'}`}>
                         {typeof t.confidence === 'number' ? `${t.confidence}%` : 'Review'}
                       </span>
@@ -100,11 +109,13 @@ const Transactions = () => {
         )}
       </div>
 
-      <UploadModal 
-        isOpen={isUploadOpen} 
-        onClose={() => setIsUploadOpen(false)} 
-        onUploadSuccess={fetchTransactions}
-      />
+      <Suspense fallback={null}>
+        <UploadModal 
+          isOpen={isUploadOpen} 
+          onClose={() => setIsUploadOpen(false)} 
+          onUploadSuccess={fetchTransactions}
+        />
+      </Suspense>
     </div>
   );
 };

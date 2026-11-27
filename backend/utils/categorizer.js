@@ -10,31 +10,162 @@ const __dirname = path.dirname(__filename);
 const cachePath = path.join(__dirname, '../../bank_parser/category_cache.json');
 
 const CATEGORIES = {
-  'Food & Dining': ['tea', 'coffee', 'dinner', 'lunch', 'breakfast', 'snack', 'swiggy', 'zomato', 'restaurant', 'cafe', 'mcdonalds', 'kfc', 'pizza', 'bread omelette'],
-  Groceries: ['milk', 'banana', 'blinkit', 'zepto', 'instamart', 'bigbasket', 'dmart', 'supermarket', 'grocery', 'vegetable', 'vegetables', 'fruit'],
-  Transport: ['metro', 'rapido', 'uber', 'ola', 'auto', 'bus', 'train', 'flight', 'irctc', 'makemytrip', 'toll', 'namma yatri', 'redbus', 'transport', 'railway', 'railways', 'indian railways'],
-  Utilities: ['water', 'electricity', 'internet', 'broadband', 'bill', 'current bill', 'power', 'cable'],
-  Recharges: ['recharge', 'jio', 'airtel', 'vi', 'vodafone', 'dth', 'tata sky', 'sun direct'],
-  Gas: ['gas', 'lpg', 'indane', 'hp gas', 'bharat gas', 'pipeline'],
-  'Transfers/Income': ['phonepe', 'gpay', 'paytm', 'credit', 'salary', 'freelance', 'deposit', 'refund', 'neft', 'imps', 'rtgs', 'upi to person'],
-  'Bank Charges': ['charge', 'charges', 'service charges', 'sms_chgs', 'uncoll chrg', 'fee', 'apy', 'gst', 'tax', 'penalty', 'emi'],
-  Shopping: ['amazon', 'amazon pay', 'amazon pay later', 'flipkart', 'myntra', 'ajio', 'meesho', 'nykaa', 'shopping', 'mall', 'clothes', 'apparel', 'shoes', 'delhivery', 'xerox'],
-  Entertainment: ['pvr', 'inox', 'movie', 'bookmyshow', 'netflix', 'prime', 'spotify'],
-  Fuel: ['indian oil', 'hp petrol', 'bharat petroleum', 'shell', 'petrol', 'diesel', 'fuel', 'fuels'],
-  'Medical Expenses': ['hospital', 'clinic', 'pharmacy', 'medicine', 'apollo', 'medical', 'doctor'],
-  Education: ['school', 'college', 'tuition', 'fee', 'university', 'course', 'exam'],
-  'Rent/Housing': ['rent', 'maintenance', 'housing', 'tenant', 'brokerage'],
-  Investments: ['mutual fund', 'mf ', 'angel mf', 'sip', 'stock', 'groww', 'zerodha', 'upstox', 'investment', 'fd'],
-  Insurance: ['insurance', 'premium', 'lic', 'policy', 'health insurance', 'car insurance'],
-  'Personal Care': ['salon', 'spa', 'haircut', 'beauty', 'cosmetics', 'grooming'],
-  'Cash Withdrawal': ['nfs/cash', 'cash wdl', 'cash withdrawal', 'atm wdl', 'atm withdrawal']
+  'Food & Dining': [
+    'tea', 'coffee', 'dinner', 'lunch', 'breakfast', 'snack',
+    'swiggy', 'zomato', 'restaurant', 'cafe', 'mcdonalds',
+    'kfc', 'pizza', 'bread omelette', 'biryani', 'hotel',
+    'dominos', 'burger king', 'subway', 'eatclub', 'faasos'
+  ],
+  Groceries: [
+    'milk', 'banana', 'blinkit', 'zepto', 'instamart',
+    'bigbasket', 'dmart', 'supermarket', 'grocery',
+    'vegetable', 'vegetables', 'fruit', 'fresh', 'mart',
+    'reliance fresh', 'more'
+  ],
+  Transport: [
+    'metro', 'rapido', 'uber', 'ola', 'auto', 'bus',
+    'train', 'flight', 'irctc', 'makemytrip', 'toll',
+    'namma yatri', 'redbus', 'transport', 'railway',
+    'railways', 'indian railways', 'parking',
+    'fastag', 'yatri'
+  ],
+  Fuel: [
+    'indian oil', 'hp petrol', 'bharat petroleum',
+    'shell', 'petrol', 'diesel', 'fuel', 'fuels',
+    'iocl', 'bpcl', 'hpcl', 'petrol bunk'
+  ],
+  Utilities: [
+    'water', 'electricity', 'internet', 'broadband',
+    'bill', 'current bill', 'power', 'cable',
+    'bescom', 'tneb', 'eb bill', 'bsnl'
+  ],
+  Recharges: [
+    'recharge', 'jio', 'airtel', 'vi',
+    'vodafone', 'dth', 'tata sky',
+    'sun direct', 'mobile recharge'
+  ],
+  Gas: [
+    'gas', 'lpg', 'indane', 'hp gas',
+    'bharat gas', 'pipeline'
+  ],
+  'Transfers/Income': [
+    'phonepe', 'gpay', 'google pay', 'paytm',
+    'credit', 'salary', 'freelance',
+    'deposit', 'refund', 'cashback',
+    'reward', 'reward points',
+    'neft', 'imps', 'rtgs',
+    'upi to person', 'upi', 'received'
+  ],
+  'Bank Charges': [
+    'charge', 'charges', 'service charges',
+    'sms_chgs', 'uncoll chrg', 'fee',
+    'apy', 'gst', 'tax', 'penalty',
+    'emi', 'interest', 'processing fee'
+  ],
+  Shopping: [
+    'amazon', 'amazon pay', 'amazon pay later',
+    'flipkart', 'myntra', 'ajio',
+    'meesho', 'nykaa', 'shopping',
+    'mall', 'clothes', 'apparel',
+    'shoes', 'delhivery', 'xerox',
+    'jiomart', 'croma', 'vijay sales',
+    'decathlon', 'ikea'
+  ],
+  Entertainment: [
+    'pvr', 'inox', 'movie',
+    'bookmyshow', 'netflix',
+    'prime', 'spotify',
+    'hotstar', 'sony liv',
+    'zee5', 'youtube premium'
+  ],
+  'Medical Expenses': [
+    'hospital', 'clinic', 'pharmacy',
+    'medicine', 'apollo', 'medical',
+    'doctor', 'medplus',
+    '1mg', 'pharmeasy'
+  ],
+  Education: [
+    'school', 'college', 'tuition',
+    'fee', 'university',
+    'course', 'exam',
+    'udemy', 'coursera',
+    'byjus', 'unacademy'
+  ],
+  'Rent/Housing': [
+    'rent', 'maintenance',
+    'housing', 'tenant',
+    'brokerage', 'society'
+  ],
+  Investments: [
+    'mutual fund', 'mf ',
+    'angel mf', 'sip',
+    'stock', 'groww',
+    'zerodha', 'upstox',
+    'investment', 'fd',
+    'etmoney', 'coin'
+  ],
+  Insurance: [
+    'insurance', 'premium',
+    'lic', 'policy',
+    'health insurance',
+    'car insurance',
+    'bike insurance'
+  ],
+  'Personal Care': [
+    'salon', 'spa',
+    'haircut', 'beauty',
+    'cosmetics', 'grooming',
+    'barber'
+  ],
+  'Cash Withdrawal': [
+    'nfs/cash', 'cash wdl',
+    'cash withdrawal',
+    'atm wdl',
+    'atm withdrawal'
+  ],
+  Donations: [
+    'temple', 'church',
+    'mosque', 'donation',
+    'charity', 'ngo'
+  ],
+  Taxes: [
+    'income tax',
+    'property tax',
+    'road tax',
+    'challan',
+    'gst payment'
+  ],
+  Loans: [
+    'loan', 'emi',
+    'bajaj finance',
+    'home credit',
+    'loan repayment'
+  ],
+  Travel: [
+    'hotel', 'oyo',
+    'booking.com',
+    'airbnb',
+    'goibibo',
+    'makemytrip'
+  ],
+  Pets: [
+    'pet', 'dog',
+    'cat', 'veterinary',
+    'pet food'
+  ],
+  Miscellaneous: []
 };
 
 const TRANSACTION_TYPE_RULES = [
   [/\b(nfs\/cash|cash wdl|cash withdrawal|atm wdl|atm withdrawal)\b/i, 'Cash Withdrawal'],
   [/\b(neft|imps|rtgs)\b/i, 'Transfers/Income'],
-  [/\b(charge|fee|gst|penalty)\b/i, 'Bank Charges'],
-  [/\b(pos|debit card|card purchase)\b/i, 'Shopping']
+  [/\b(upi|upi\/dr|upi\/cr|phonepe|gpay|google pay|paytm)\b/i, 'Transfers/Income'],
+  [/\b(salary|credit interest|refund|cashback|reward)\b/i, 'Transfers/Income'],
+  [/\b(charge|charges|fee|gst|penalty|interest|processing fee)\b/i, 'Bank Charges'],
+  [/\b(emi|loan)\b/i, 'Loans'],
+  [/\b(pos|debit card|card purchase|visa|mastercard)\b/i, 'Shopping'],
+  [/\b(petrol|diesel|fuel|iocl|hpcl|bpcl|shell)\b/i, 'Fuel'],
+  [/\b(airtel|jio|vi|recharge)\b/i, 'Recharges']
 ];
 
 const VALID_CATEGORIES = Object.keys(CATEGORIES);
@@ -93,8 +224,85 @@ export const saveCategoryCorrection = (description, category) => {
   }
 };
 
-export const categorizeTransactionDetails = (description = '', amount) => {
-  const desc = description.toLowerCase();
+export const buildNormalizedSearchableString = (tx) => {
+  if (!tx) return '';
+  const textValues = [];
+
+  const fields = [
+    'description', 'narration', 'merchantName', 'merchant_name', 'merchant',
+    'beneficiaryName', 'beneficiary_name', 'beneficiary', 'senderName', 'sender_name', 'sender',
+    'receiverName', 'receiver_name', 'receiver', 'upiAppName', 'upi_app_name', 'upi_app',
+    'upiId', 'upi_id', 'vpa', 'reference', 'referenceNumber', 'reference_number',
+    'transactionRemarks', 'transaction_remarks', 'remarks', 'bankRemarks', 'bank_remarks',
+    'paymentGateway', 'payment_gateway', 'type', 'transactionType', 'transaction_type',
+    'additionalDetails', 'additional_details'
+  ];
+
+  // Try to extract known fields
+  for (const field of fields) {
+    let val = '';
+    if (typeof tx.get === 'function') { // Mongoose document
+      val = tx.get(field);
+    } else {
+      val = tx[field];
+    }
+    if (val !== undefined && val !== null && val !== '') {
+      textValues.push(String(val));
+    }
+  }
+
+  // Also grab any other string values to be comprehensive
+  const keys = typeof tx.toObject === 'function' ? Object.keys(tx.toObject()) : Object.keys(tx);
+  const metadataKeys = ['_id', 'user', 'date', 'amount', 'balance', 'confidence', 'needsReview', 'categorizationSource', 'category', 'createdAt', 'updatedAt', '__v'];
+  for (const key of keys) {
+    if (!fields.includes(key) && !metadataKeys.includes(key)) {
+      let val = '';
+      if (typeof tx.get === 'function') {
+        val = tx.get(key);
+      } else {
+        val = tx[key];
+      }
+      if (typeof val === 'string' && val.trim() !== '') {
+        textValues.push(val);
+      }
+    }
+  }
+
+  // Combine, lowercase
+  let combined = textValues.join(' ').toLowerCase();
+
+  // Remove punctuation and special characters (keep alphanumeric and spaces)
+  combined = combined.replace(/[^a-z0-9\s]/g, ' ');
+
+  // Replace multiple spaces with a single space, trim
+  combined = combined.replace(/\s+/g, ' ').trim();
+
+  // Remove duplicate words preserving order
+  const words = combined.split(' ');
+  const uniqueWords = [];
+  const seen = new Set();
+  for (const word of words) {
+    if (word && !seen.has(word)) {
+      seen.add(word);
+      uniqueWords.push(word);
+    }
+  }
+
+  return uniqueWords.join(' ');
+};
+
+export const categorizeTransactionDetails = (transactionOrDesc, amount) => {
+  let searchStr = '';
+  let description = '';
+
+  if (transactionOrDesc && typeof transactionOrDesc === 'object') {
+    description = transactionOrDesc.description || '';
+    searchStr = buildNormalizedSearchableString(transactionOrDesc);
+  } else {
+    description = String(transactionOrDesc || '');
+    searchStr = buildNormalizedSearchableString({ description });
+  }
+
   const numericAmount = Number(amount || 0);
 
   if (numericAmount > 0) {
@@ -106,15 +314,17 @@ export const categorizeTransactionDetails = (description = '', amount) => {
 
   if (cache[normalizedDesc] && cache[normalizedDesc] !== 'Others') {
     const cachedCategory = cache[normalizedDesc];
-    if (!(cachedCategory === 'Cash Withdrawal' && !hasCashWithdrawalSignal(desc))) {
+    if (!(cachedCategory === 'Cash Withdrawal' && !hasCashWithdrawalSignal(searchStr))) {
       return result(cachedCategory, 100, 'cache');
     }
   }
 
+  let matchedTransferDebit = false;
   for (const [pattern, category] of TRANSACTION_TYPE_RULES) {
-    if (pattern.test(desc)) {
+    if (pattern.test(searchStr)) {
       if (category === 'Transfers/Income' && numericAmount < 0) {
-        return result('Others', 45, 'transaction_type');
+        matchedTransferDebit = true;
+        continue;
       }
       return result(category, 95, 'transaction_type');
     }
@@ -126,7 +336,7 @@ export const categorizeTransactionDetails = (description = '', amount) => {
     for (const keyword of keywords) {
       const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const pattern = new RegExp(`\\b${escaped}\\b`, 'i');
-      if (pattern.test(desc)) {
+      if (pattern.test(searchStr)) {
         return result(category, 90, 'merchant_rule');
       }
     }
@@ -136,11 +346,15 @@ export const categorizeTransactionDetails = (description = '', amount) => {
     return result('Others', 60, 'cache');
   }
 
+  if (matchedTransferDebit) {
+    return result('Others', 45, 'transaction_type');
+  }
+
   return result('Others', 40, 'unknown');
 };
 
-export const categorizeTransaction = (description, amount) => {
-  return categorizeTransactionDetails(description, amount).category;
+export const categorizeTransaction = (transactionOrDesc, amount) => {
+  return categorizeTransactionDetails(transactionOrDesc, amount).category;
 };
 
 export const categorizeTransactionsWithAi = async (transactions) => {
@@ -177,7 +391,25 @@ Return a JSON object like:
 
   let aiResults = null;
 
-  if (process.env.GROQ_API_KEY) {
+  if (process.env.DEEPSEEK_API_KEY) {
+    try {
+      const client = new OpenAI({ 
+        apiKey: process.env.DEEPSEEK_API_KEY, 
+        baseURL: 'https://api.deepseek.com' 
+      });
+      const completion = await client.chat.completions.create({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        response_format: { type: 'json_object' }
+      });
+      aiResults = parseAiResponse(completion.choices[0].message.content);
+    } catch (error) {
+      console.error('DeepSeek batch categorization failed:', error.message);
+    }
+  }
+
+  if (!aiResults && process.env.GROQ_API_KEY) {
     try {
       const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
       const completion = await client.chat.completions.create({
